@@ -18,30 +18,63 @@ class EndOfFile(Exception):
 
 class OggPage(object):
     def __init__(self, infile):
-        capture_pattern = infile.read(4)
+        static_header = infile.read(27)
+        capture_pattern = static_header[:4]
         if len(capture_pattern) == 0:
             raise EndOfFile()
         if capture_pattern != "OggS":
             raise ValueError("Invalid capture pattern", capture_pattern)
-        self.stream_structure_version = _int(infile.read(1))
-        header_type_flag = _int(infile.read(1))
-        self.continued_packet = bool(header_type_flag & 0x01)
-        self.first_page = bool(header_type_flag & 0x02)
-        self.last_page = bool(header_type_flag & 0x04)
-        self.granule_pos = _int(infile.read(8))
-        self.serial = _int(infile.read(4))
-        self.page_seq = _int(infile.read(4))
-        self.checksum = _int(infile.read(4))
-        self.segments = _int(infile.read(1))
-        seg_table_str = infile.read(self.segments)
-        seg_table = []
-        for i, c in enumerate(seg_table_str):
-            seg_table.append(_int(c))
-
+        segments = _int(static_header[-1])
+        seg_table = infile.read(segments)
+        seg_table_lens = [_int(c) for c in seg_table]
         raw_data = []
-        for i in seg_table:
+        for i in seg_table_lens:
             raw_data.append(infile.read(i))
-        self.payload = "".join(raw_data)
+        payload = "".join(raw_data)
+
+        self.raw = static_header + seg_table + payload
+
+    @property
+    def capture_pattern(self):
+        return self.raw[:4]
+    @property
+    def stream_structure_version(self):
+        return _int(self.raw[4])
+    @property
+    def header_type_flag(self):
+        return _int(self.raw[5])
+    @property
+    def continued_packet(self):
+        return bool(self.header_type_flag & 0x01)
+    @property
+    def first_page(self):
+        return bool(self.header_type_flag & 0x02)
+    @property
+    def last_page(self):
+        return bool(self.header_type_flag & 0x04)
+    @property
+    def granule_pos(self):
+        return _int(self.raw[6:14])
+    @property
+    def serial(self):
+        return _int(self.raw[14:18])
+    @property
+    def page_seq(self):
+        return _int(self.raw[18:22])
+    @property
+    def checksum(self):
+        return _int(self.raw[22:26])
+    @property
+    def segments(self):
+        return _int(self.raw[26])
+    @property
+    def seg_table(self):
+        return [_int(c) for c in self.raw[27:]]
+    @property
+    def payload(self):
+        payload_index = 27 + self.segments
+        return self.raw[payload_index:]
+        
 
 
 class BitStream(object):
@@ -81,7 +114,6 @@ def main():
         bitstream_gen = pages_to_bitstreams(page_gen)
         bitstreams = list(bitstream_gen)
         print bitstreams
-        print len(bitstreams)
 
 if __name__ == "__main__":
     main()
