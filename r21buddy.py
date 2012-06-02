@@ -80,25 +80,6 @@ class OggPage(object):
         return "<OggPage FirstPage:{0:5s} LastPage:{1:5s} ContinuedPacket:{2:5s}>".format(str(self.first_page), str(self.last_page), str(self.continued_packet))
 
 
-
-        
-
-
-def get_pages(infile):
-    while True:
-        try:
-            yield OggPage(infile)
-        except NoMorePages:
-            break
-
-def get_bitstreams(pages):
-    while True:
-        try:
-            yield BitStream(pages)
-        except NoMoreBitstreams:
-            break
-
-
 class BitStream(object):
     def __init__(self, pages):
 
@@ -163,17 +144,34 @@ class IdHeader(VorbisHeader):
     def __str__(self):
         return "<IdHeader version:%d channels:%d sample_rate:%d raw:%s>" % (self.vorbis_version, self.audio_channels, self.audio_sample_rate, repr(self.raw))
 
+
 class CommentsHeader(VorbisHeader):
     def __init__(self, data):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 3:
             raise ValueError("Invalid packet type", self.packet_type)
+
+
 class SetupHeader(VorbisHeader):
     def __init__(self, data):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 5:
             raise ValueError("Invalid packet type", self.packet_type)
 
+
+def get_pages(infile):
+    while True:
+        try:
+            yield OggPage(infile)
+        except NoMorePages:
+            break
+
+def get_bitstreams(pages):
+    while True:
+        try:
+            yield BitStream(pages)
+        except NoMoreBitstreams:
+            break
 
 def main():
     with open(sys.argv[1], "rb") as infile:
