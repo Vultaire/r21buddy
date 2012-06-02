@@ -71,12 +71,39 @@ class OggPage(object):
         return _int(self.raw[26])
     @property
     def seg_table(self):
-        return [_int(c) for c in self.raw[27:]]
+        return [_int(c) for c in self.raw[27:27+self.segments]]
     @property
     def payload(self):
         payload_index = 27 + self.segments
         return self.raw[payload_index:]
     def __str__(self):
+        return """\
+Ogg Page:
+    Capture Pattern: {0}
+    Stream Structure Version: {1}
+    Header Type Flag: {2:X} (continued packet: {3}, first page: {4}, last page: {5})
+    Granule Position: {6}
+    Serial: {7}
+    Page Seq: {8}
+    Checksum: {9}
+    Segments: {10}
+    Segment Table: {11}
+    Payload: {12} bytes, repr: {13}""".format(
+        self.capture_pattern,
+        self.stream_structure_version,
+        self.header_type_flag,
+        self.continued_packet,
+        self.first_page,
+        self.last_page,
+        self.granule_pos,
+        self.serial,
+        self.page_seq,
+        self.checksum,
+        self.segments,
+        self.seg_table,
+        len(self.payload),
+        repr(self.payload))
+    def __repr__(self):
         return "<OggPage FirstPage:{0:5s} LastPage:{1:5s} ContinuedPacket:{2:5s}>".format(str(self.first_page), str(self.last_page), str(self.continued_packet))
 
 
@@ -108,9 +135,9 @@ class BitStream(object):
 
         try:
             self.id_header = IdHeader(first_packet)
-            print str(self.id_header)
-            self.comments_header = CommentsHeader(packet_gen.next())
-            print str(self.comments_header)
+            #print str(self.id_header)
+            #self.comments_header = CommentsHeader(packet_gen.next())
+            #print str(self.comments_header)
         except StopIteration:
             raise Exception("Unexpected end of bitstream detected.")
 
