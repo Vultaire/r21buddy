@@ -76,6 +76,10 @@ class OggPage(object):
     def payload(self):
         payload_index = 27 + self.segments
         return self.raw[payload_index:]
+    def get_segment(self, i):
+        payload_index = 27 + self.segments
+        segment_index = payload_index + sum(self.seg_table[:i])
+        return self.raw[segment_index:segment_index+self.seg_table[i]]
     def __str__(self):
         return """\
 Ogg Page:
@@ -112,20 +116,37 @@ class BitStream(object):
 
         def get_packets(pages):
             """Generates packets from pages until a last page marker is found."""
+            """Extracting packets from pages:
+            For each segment in the page,
+              Append to data
+              If length < 255:
+                Yield data as packet
+            If data exists in the queue at the end of a page:
+              If more pages are present:
+                Confirm that next page is flagged as continued, fail if not.
+                Continue with above algorithm.
+              Else:
+                Raise exception, no packet termination detected.
+                (Include fragment in exception args.)
+
+            """
             data = []
             for i, page in enumerate(pages):
-                # Push finished packets to packet list
-                if not page.continued_packet and len(data) > 0:
-                    yield "".join(data)
-                    data = []
-                #print i, page.first_page, page.last_page, page.continued_packet, repr(page.payload)
-                print "{0:4d}".format(i), page
-                data.append(page.payload)
+                #print "{0:4d}".format(i), page
+                if page.continued_packet and len(data) == 0:
+                    raise Exception("Unexpected continued packet")
+
+                for j in xrange(page.segments):
+                    segment = page.get_segment(j)
+                    data.append(segment)
+                    if page.seg_table[j] < 255:
+                        yield "".join(data)
+                        data = []
+                        
                 if page.last_page:
                     break
-            # Yield final packet
             if len(data) > 0:
-                yield "".join(data)
+                raise Exception("Unterminated packet", "".join(data))
 
         packet_gen = get_packets(pages)
         try:
@@ -135,9 +156,11 @@ class BitStream(object):
 
         try:
             self.id_header = IdHeader(first_packet)
-            #print str(self.id_header)
-            #self.comments_header = CommentsHeader(packet_gen.next())
-            #print str(self.comments_header)
+            print str(self.id_header)
+            self.comments_header = CommentsHeader(packet_gen.next())
+            print str(self.comments_header)
+            self.setup_header = SetupHeader(packet_gen.next())
+            print str(self.setup_header)
         except StopIteration:
             raise Exception("Unexpected end of bitstream detected.")
 
@@ -228,6 +251,8 @@ class SetupHeader(VorbisHeader):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 5:
             raise ValueError("Invalid packet type", self.packet_type)
+    def __str__(self):
+        return "<SetupHeader raw:%s>" % (repr(self.raw),)
 
 
 def get_pages(infile):
