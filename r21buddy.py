@@ -24,6 +24,71 @@ class InvalidFramingBit(Exception):
     pass
 
 
+"""
+Description of the Ogg Length Hack
+
+It seems the hack takes the final Ogg Page frame and uses its
+granulepos.
+
+Additionally, the checksum gets modified...  This may be hard to
+replicate, though at least there are C++ sources I can work from now
+(itgoggpatch).
+
+Granulepos:
+  As defined by Vorbis spec:
+    For headers: 0
+    For Vorbis audio:
+    - # of PCM audio samples (per channel - stereo increases at same rate as mono)
+    - Represents end PCM sample position of last completed packet.
+    - Will be -1 if a packet spans a full page and extends onto the next page.
+    - Page 0 may infer a non-zero starting point if granulepos !=
+      count of PCM samples in completed packets.
+    - granule_pos on last frame can be used to prematurely end the
+      stream.  (This is what the hack utilizes... the size check is
+      based off of the final granule position.)
+
+  Basically: Audio sample rate * 105 seconds = final granulepos
+  Audio sample rate: Extract from Vorbis ID header
+
+CRC checksum used for Ogg:
+  direct algorithm ("DIRECT TABLE ALGORITHM"???),
+  initial val and final XOR = 0,
+  generator polynomial = 0x04c11db7
+
+  Generator polynomial is equiv to pkzip... but not the whole thing?
+
+  Yes, we have a custom CRC function for Ogg.  Lovely...
+  Assuming no reflection, init/xor 0.
+
+    Here is the specification for the CRC-32 algorithm which is reportedly
+    used in PKZip, AUTODIN II, Ethernet, and FDDI.
+    
+       Name   : "CRC-32"
+       Width  : 32        # 32-bit algorithm
+       Poly   : 04C11DB7  # Note: "unreflected"
+       Init   : FFFFFFFF  # Initial value
+       RefIn  : True      # Reflect lsb/msb on input
+       RefOut : True      # Reflect lsb/mbs on output
+       XorOut : FFFFFFFF  # Applied after refout, just before final value
+       Check  : CBF43926  # Checksum of string "123456789"
+
+
+  Steps:
+  - Apply over entire header (crc as 0)
+  - Apply over data
+  - Store into header
+
+  REFER TO: http://www.ross.net/crc/download/crc_v3.txt
+  (Still need to figure this stuff out...)
+
+
+"""
+
+def calc_crc(str):
+    OGG_POLY = 0x04c11db7
+    
+
+
 class OggPage(object):
     def __init__(self, infile):
         static_header = infile.read(27)
@@ -117,14 +182,14 @@ Ogg Page:
         return "<OggPage FirstPage:{0:5s} LastPage:{1:5s} ContinuedPacket:{2:5s}>".format(str(self.first_page), str(self.last_page), str(self.continued_packet))
 
 
-class BitStream(object):
+class VorbisBitStream(object):
     def __init__(self, pages):
 
         def get_packets(pages):
             """Generates packets from pages until a last page marker is found."""
             data = []
             for i, page in enumerate(pages):
-                #print "{0:4d}".format(i), page
+                print "{0:4d}".format(i), page
                 if page.continued_packet and len(data) == 0:
                     raise UnexpectedContinuedPacket()
 
@@ -276,6 +341,37 @@ class SetupHeader(VorbisHeader):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 5:
             raise ValueError("Invalid packet type", self.packet_type)
+
+        # This gets really complicated, and appears unnecessary for
+        # the Ogg length patch.  Skipping for now...
+
+        # ptr = 7
+
+        # # Cookbook configs
+        # vorbis_cookbook_count = _int(self.raw[ptr:ptr+4])
+        # ptr += 4
+        # # TO DO: decode cookbooks
+
+        # # Time-domain transform configs
+        # vorbis_time_count = _int(self.raw[ptr:ptr+4])
+        # ptr += 4
+        # self.time_domain_transform_cfgs = []
+        # for i in xrange(vorbis_time_count):
+        #     self.time_domain_transform_cfgs.append(_int(self.raw[ptr:ptr+4]))
+        #     ptr += 4
+        # if any(v != 0 for v in self.time_domain_transform_cfgs):
+        #     raise ValueError("Unexpected values for time-domain transform configs", 
+        #                      self.time_domain_transform_cfgs)
+
+        # # Floor configs
+        # vorbis_floor_count = _int(self.raw[ptr:ptr+4])
+        # ptr += 4
+        
+        # # Residue configs
+        # # Channel mapping configs
+        # # Mode configs
+        # # Framing bit
+
     def __str__(self):
         return "<SetupHeader raw:%s>" % (repr(self.raw),)
 
@@ -290,7 +386,7 @@ def get_pages(infile):
 def get_bitstreams(pages):
     while True:
         try:
-            yield BitStream(pages)
+            yield VorbisBitStream(pages)
         except NoMoreBitstreams:
             break
 
@@ -299,7 +395,8 @@ def main():
         page_gen = get_pages(infile)
         bitstream_gen = get_bitstreams(page_gen)
         for i, bitstream in enumerate(bitstream_gen):
-            print i, bitstream
+            for j, packet in enumerate(bitstream.data_packets):
+                pass  #print j, repr(packet)
 
 if __name__ == "__main__":
     main()
