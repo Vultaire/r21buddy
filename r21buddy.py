@@ -87,12 +87,12 @@ class BitStream(object):
             """Generates packets from pages until a last page marker is found."""
             data = []
             for i, page in enumerate(pages):
-                #print i, page.first_page, page.last_page, page.continued_packet, repr(page.payload)
-                print "{0:4d}".format(i), page
                 # Push finished packets to packet list
                 if not page.continued_packet and len(data) > 0:
                     yield "".join(data)
                     data = []
+                #print i, page.first_page, page.last_page, page.continued_packet, repr(page.payload)
+                print "{0:4d}".format(i), page
                 data.append(page.payload)
                 if page.last_page:
                     break
@@ -110,6 +110,7 @@ class BitStream(object):
             self.id_header = IdHeader(first_packet)
             print str(self.id_header)
             self.comments_header = CommentsHeader(packet_gen.next())
+            print str(self.comments_header)
         except StopIteration:
             raise Exception("Unexpected end of bitstream detected.")
 
@@ -141,8 +142,49 @@ class IdHeader(VorbisHeader):
     @property
     def audio_sample_rate(self):
         return _int(self.raw[12:16])
+    @property
+    def bitrate_maximum(self):
+        return _int(self.raw[16:20])
+    @property
+    def bitrate_nominal(self):
+        return _int(self.raw[20:24])
+    @property
+    def bitrate_minimum(self):
+        return _int(self.raw[24:28])
+    @property
+    def blocksize_0(self):
+        return pow(2, _int(self.raw[28]) & 0x0F)
+    @property
+    def blocksize_1(self):
+        return pow(2, (_int(self.raw[28]) & 0xF0) >> 4)
+    @property
+    def framing_bit(self):
+        return _int(self.raw[29]) & 0x01
     def __str__(self):
-        return "<IdHeader version:%d channels:%d sample_rate:%d raw:%s>" % (self.vorbis_version, self.audio_channels, self.audio_sample_rate, repr(self.raw))
+        return """\
+ID Header:
+    Vorbis Version: {0}
+    Audio Channels: {1}
+    Audio Sample Rate: {2}
+    Bitrate Maximum: {3}
+    Bitrate Nominal: {4}
+    Bitrate Minimum: {5}
+    Blocksize 0: {6}
+    Blocksize 1: {7}
+    Framing bit: {8}""".format(
+        self.vorbis_version,
+        self.audio_channels,
+        self.audio_sample_rate,
+        self.bitrate_maximum,
+        self.bitrate_nominal,
+        self.bitrate_minimum,
+        self.blocksize_0,
+        self.blocksize_1,
+        self.framing_bit)
+    def __repr__(self):
+        return "<IdHeader version:%d channels:%d sample_rate:%d raw:%s>" % (
+            self.vorbis_version, self.audio_channels,
+            self.audio_sample_rate, repr(self.raw))
 
 
 class CommentsHeader(VorbisHeader):
@@ -150,6 +192,8 @@ class CommentsHeader(VorbisHeader):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 3:
             raise ValueError("Invalid packet type", self.packet_type)
+    def __str__(self):
+        return "<CommentsHeader raw:%s>" % (repr(self.raw),)
 
 
 class SetupHeader(VorbisHeader):
@@ -179,17 +223,6 @@ def main():
         bitstream_gen = get_bitstreams(page_gen)
         for i, bitstream in enumerate(bitstream_gen):
             print i, bitstream
-
-        #for i, bitstream in enumerate(bitstreams):
-        #    for j, packet in enumerate(bitstream.packets):
-        #        print (i, j, len(packet))
-
-        #id_header = IdHeader(bitstreams[0].packets[0])
-        #print str(id_header)
-        #comments_header = CommentsHeader(bitstreams[0].packets[1])
-        #setup_header = SetupHeader(bitstreams[0].packets[2])  # Causes error... why?
-
-        #print bitstreams[0].packets[1]
 
 if __name__ == "__main__":
     main()
