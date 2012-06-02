@@ -16,6 +16,10 @@ class NoMorePages(Exception):
     pass
 class NoMoreBitstreams(Exception):
     pass
+class UnexpectedContinuedPacket(Exception):
+    pass
+class UnterminatedPacket(Exception):
+    pass
 
 
 class OggPage(object):
@@ -116,25 +120,11 @@ class BitStream(object):
 
         def get_packets(pages):
             """Generates packets from pages until a last page marker is found."""
-            """Extracting packets from pages:
-            For each segment in the page,
-              Append to data
-              If length < 255:
-                Yield data as packet
-            If data exists in the queue at the end of a page:
-              If more pages are present:
-                Confirm that next page is flagged as continued, fail if not.
-                Continue with above algorithm.
-              Else:
-                Raise exception, no packet termination detected.
-                (Include fragment in exception args.)
-
-            """
             data = []
             for i, page in enumerate(pages):
                 #print "{0:4d}".format(i), page
                 if page.continued_packet and len(data) == 0:
-                    raise Exception("Unexpected continued packet")
+                    raise UnexpectedContinuedPacket()
 
                 for j in xrange(page.segments):
                     segment = page.get_segment(j)
@@ -146,7 +136,7 @@ class BitStream(object):
                 if page.last_page:
                     break
             if len(data) > 0:
-                raise Exception("Unterminated packet", "".join(data))
+                raise UnterminatedPacket("".join(data))
 
         packet_gen = get_packets(pages)
         try:
