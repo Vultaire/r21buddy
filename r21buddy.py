@@ -20,6 +20,8 @@ class UnexpectedContinuedPacket(Exception):
     pass
 class UnterminatedPacket(Exception):
     pass
+class InvalidFramingBit(Exception):
+    pass
 
 
 class OggPage(object):
@@ -232,7 +234,40 @@ class CommentsHeader(VorbisHeader):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 3:
             raise ValueError("Invalid packet type", self.packet_type)
+
+        ptr = 7
+
+        vendor_length = _int(self.raw[ptr:ptr+4])
+        ptr += 4
+
+        self.vendor_string = self.raw[ptr:ptr+vendor_length].decode("utf-8")
+        ptr += vendor_length
+
+        self.user_comment_list_length = _int(self.raw[ptr:ptr+4])
+        ptr += 4
+
+        self.user_strings = []
+        for i in xrange(self.user_comment_list_length):
+            _len = _int(self.raw[ptr:ptr+4])
+            ptr += 4
+            val = self.raw[ptr:ptr+_len]
+            self.user_strings.append(val.decode("utf-8"))
+            ptr += _len
+
+        self.framing_bit = _int(self.raw[ptr]) & 0x1
+        if self.framing_bit == 0:
+            raise InvalidFramingBit()
+
     def __str__(self):
+        lines = ["Comments Header:"]
+        lines.append("    Vendor String: {0}".format(self.vendor_string))
+        user_strings = ["    User String[{0}]: {1}".format(i, s)
+                        for (i, s) in enumerate(self.user_strings)]
+        if len(user_strings) > 0:
+            lines.extend(user_strings),
+        lines.append("    Framing bit: {0}".format(self.framing_bit))
+        return "\n".join(lines)
+    def __repr__(self):
         return "<CommentsHeader raw:%s>" % (repr(self.raw),)
 
 
