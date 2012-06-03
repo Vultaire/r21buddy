@@ -189,7 +189,7 @@ class VorbisBitStream(object):
             """Generates packets from pages until a last page marker is found."""
             data = []
             for i, page in enumerate(pages):
-                print "{0:4d}".format(i), page
+                #print "{0:4d}".format(i), page
                 if page.continued_packet and len(data) == 0:
                     raise UnexpectedContinuedPacket()
 
@@ -205,24 +205,31 @@ class VorbisBitStream(object):
             if len(data) > 0:
                 raise UnterminatedPacket("".join(data))
 
-        packet_gen = get_packets(pages)
+        self.pages = list(pages)  # Needed to recreate stream with updated final page
+
+        packet_gen = get_packets(self.pages)
         try:
             first_packet = packet_gen.next()
         except StopIteration:
             raise NoMoreBitstreams
 
-        try:
-            self.id_header = IdHeader(first_packet)
-            print str(self.id_header)
-            self.comments_header = CommentsHeader(packet_gen.next())
-            print str(self.comments_header)
-            self.setup_header = SetupHeader(packet_gen.next())
-            print str(self.setup_header)
-        except StopIteration:
-            raise Exception("Unexpected end of bitstream detected.")
+        self.id_header = IdHeader(first_packet)
+        for packet in packet_gen:
+            pass
 
-        # Store all remaining packets in the bitstream
-        self.data_packets = list(packet_gen)
+        # Here's how we -really- would decode a vorbis packet stream:
+        # # 1. Pull headers
+        # try:
+        #     self.id_header = IdHeader(first_packet)
+        #     print str(self.id_header)
+        #     self.comments_header = CommentsHeader(packet_gen.next())
+        #     print str(self.comments_header)
+        #     self.setup_header = SetupHeader(packet_gen.next())
+        #     print str(self.setup_header)
+        # except StopIteration:
+        #     raise Exception("Unexpected end of bitstream detected.")
+        # # 2. Store all remaining packets in the bitstream
+        # self.data_packets = list(packet_gen)
 
 
 class VorbisHeader(object):
@@ -394,9 +401,14 @@ def main():
     with open(sys.argv[1], "rb") as infile:
         page_gen = get_pages(infile)
         bitstream_gen = get_bitstreams(page_gen)
-        for i, bitstream in enumerate(bitstream_gen):
-            for j, packet in enumerate(bitstream.data_packets):
-                pass  #print j, repr(packet)
+        for bitstream in bitstream_gen:
+            sample_rate = bitstream.id_header.audio_sample_rate
+            current_granule_pos = bitstream.pages[-1].granule_pos
+            target_granule_pos = 105 * sample_rate  # 1:45
+            print "Current granule_pos of final frame:", current_granule_pos
+            print "Target granule_pos of final frame :", target_granule_pos
+            if target_granule_pos < current_granule_pos:
+                print "TODO: patch bitstream!"
 
 if __name__ == "__main__":
     main()
