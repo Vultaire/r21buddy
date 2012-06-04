@@ -1,3 +1,6 @@
+# Author: Paul Goins
+# License (this module only): PUBLIC DOMAIN
+
 import sys
 
 def get_bits(message):
