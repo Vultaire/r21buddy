@@ -1,4 +1,6 @@
 import sys
+from cStringIO import StringIO
+import crc
 
 def _int(lsb_str):
     # Not sure how to handle bytes in MSB order...
@@ -151,6 +153,28 @@ class OggPage(object):
         payload_index = 27 + self.segments
         segment_index = payload_index + sum(self.seg_table[:i])
         return self.raw[segment_index:segment_index+self.seg_table[i]]
+    def get_data_without_crc(self):
+        return "".join([self.raw[:22], chr(0) * 4, self.raw[26:]])
+    def get_data_with_new_length(self, granulepos):
+        """Returns patched packet data."""
+        def int_to_bytes(i, num_bytes):
+            result = []
+            for j in xrange(num_bytes):
+                byte = (i >> (j*8)) & 0xFF
+                result.append(chr(byte))
+            return "".join(result)
+
+        data = "".join([self.raw[:6],
+                        int_to_bytes(granulepos, 8),
+                        self.raw[14:22],
+                        chr(0) * 4,
+                        self.raw[26:]])
+        checksum = crc.bit_by_bit(data)
+        return "".join([self.raw[:6],
+                        int_to_bytes(granulepos, 8),
+                        self.raw[14:22],
+                        int_to_bytes(checksum, 4),
+                        self.raw[26:]])
     def __str__(self):
         return """\
 Ogg Page:
@@ -236,16 +260,26 @@ class VorbisBitStream(object):
         current_granule_pos = self.pages[-1].granule_pos
         return float(current_granule_pos) / sample_rate
 
-    def patch_length(self, new_length):
+    def patch_length(self, new_length, verbose=True):
         current_length = self.get_length()
-        print "> Current file length: {0:.2f} seconds".format(current_length)
-        print "> Target file length:  {0:.2f} seconds".format(new_length)
+        if verbose:
+            print "Current file length: {0:.2f} seconds".format(current_length)
+            print "Target file length:  {0:.2f} seconds".format(new_length)
         if new_length < current_length:
             new_granule_pos = self.id_header.audio_sample_rate * new_length
 
-            print "**TO DO:** Patch bitstream to new length of {0:.2f} seconds".format(new_length)
-            print "CURRENT GRANULE POS:", self.pages[-1].granule_pos
-            print "NEW GRANULE POS    :", new_granule_pos
+            last_page = self.pages[-1]
+            if verbose:
+                print "Current granule position:", last_page.granule_pos
+                print "New granule position    :", new_granule_pos
+
+            # Replace last page with patched version
+            new_page_data = last_page.get_data_with_new_length(new_granule_pos)
+            self.pages[-1] = OggPage(StringIO(new_page_data))
+
+    def write_to_file(self, outfile):
+        for page in self.pages:
+            outfile.write(page.raw)
 
 
 class VorbisHeader(object):
@@ -416,15 +450,18 @@ def get_bitstreams(pages):
 def main():
     with open(sys.argv[1], "rb") as infile:
         page_gen = get_pages(infile)
-        bitstream_gen = get_bitstreams(page_gen)
+        bitstreams = list(get_bitstreams(page_gen))
         patched = False
-        for bitstream in bitstream_gen:
+        for bitstream in bitstreams:
+            print "Checksum of last page: {0:08X}".format(bitstream.pages[-1].checksum)
             if bitstream.get_length() > 105:
                 patched = True
                 bitstream.patch_length(105)
-        if patched:
-            # Overwrite existing file.  **TO DO**
-            print "TO DO: Save patched file to disk"
+    if patched:
+        print "Writing patched file to", sys.argv[1]
+        with open(sys.argv[1], "wb") as outfile:
+            for bitstream in bitstreams:
+                bitstream.write_to_file(outfile)
 
 
 if __name__ == "__main__":
