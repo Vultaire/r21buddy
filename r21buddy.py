@@ -114,10 +114,10 @@ class OggPage(object):
         return self.raw[:4]
     @property
     def stream_structure_version(self):
-        return _int(self.raw[4])
+        return ord(self.raw[4])
     @property
     def header_type_flag(self):
-        return _int(self.raw[5])
+        return ord(self.raw[5])
     @property
     def continued_packet(self):
         return bool(self.header_type_flag & 0x01)
@@ -141,10 +141,10 @@ class OggPage(object):
         return _int(self.raw[22:26])
     @property
     def segments(self):
-        return _int(self.raw[26])
+        return ord(self.raw[26])
     @property
     def seg_table(self):
-        return [_int(c) for c in self.raw[27:27+self.segments]]
+        return [ord(c) for c in self.raw[27:27+self.segments]]
     @property
     def payload(self):
         payload_index = 27 + self.segments
@@ -289,7 +289,7 @@ class VorbisHeader(object):
             raise ValueError("Invalid vorbis header")
     @property
     def packet_type(self):
-        return _int(self.raw[0])
+        return ord(self.raw[0])
 
 
 class IdHeader(VorbisHeader):
@@ -302,7 +302,7 @@ class IdHeader(VorbisHeader):
         return _int(self.raw[7:11])
     @property
     def audio_channels(self):
-        return _int(self.raw[11])
+        return ord(self.raw[11])
     @property
     def audio_sample_rate(self):
         return _int(self.raw[12:16])
@@ -317,13 +317,13 @@ class IdHeader(VorbisHeader):
         return _int(self.raw[24:28])
     @property
     def blocksize_0(self):
-        return pow(2, _int(self.raw[28]) & 0x0F)
+        return pow(2, ord(self.raw[28]) & 0x0F)
     @property
     def blocksize_1(self):
-        return pow(2, (_int(self.raw[28]) & 0xF0) >> 4)
+        return pow(2, (ord(self.raw[28]) & 0xF0) >> 4)
     @property
     def framing_bit(self):
-        return _int(self.raw[29]) & 0x01
+        return ord(self.raw[29]) & 0x01
     def __str__(self):
         return """\
 ID Header:
@@ -376,7 +376,7 @@ class CommentsHeader(VorbisHeader):
             self.user_strings.append(val.decode("utf-8"))
             ptr += _len
 
-        self.framing_bit = _int(self.raw[ptr]) & 0x1
+        self.framing_bit = ord(self.raw[ptr]) & 0x1
         if self.framing_bit == 0:
             raise InvalidFramingBit()
 
