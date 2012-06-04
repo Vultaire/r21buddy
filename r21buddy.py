@@ -1,40 +1,17 @@
-import sys
-from cStringIO import StringIO
-import crc
-
-def _int(lsb_str):
-    # Not sure how to handle bytes in MSB order...
-    # Just assuming we always run using LSB.
-    result = 0
-    for i in xrange(len(lsb_str)):
-        result |= (ord(lsb_str[i]) << (8*i))
-    return result
-
-def _hex(i):
-    return "%08X" % i
-
-
-class NoMorePages(Exception):
-    pass
-class NoMoreBitstreams(Exception):
-    pass
-class UnexpectedContinuedPacket(Exception):
-    pass
-class UnterminatedPacket(Exception):
-    pass
-class InvalidFramingBit(Exception):
-    pass
-
-
 """
-Description of the Ogg Length Hack
+r21buddy.py: Pure Python version of the R21 Ogg Length Hack
 
-It seems the hack takes the final Ogg Page frame and uses its
-granulepos.
+Description of the Ogg Length Hack:
 
-Additionally, the checksum gets modified...  This may be hard to
-replicate, though at least there are C++ sources I can work from now
-(itgoggpatch).
+The hack modifies the granule_pos field of the final Ogg page of a
+Vorbis bitstream.
+
+Additionally, the checksum gets modified using a custom CRC algorithm.
+It's similar to crc32 but with a few differences, so I've implemented
+the algorithm myself.  It's slow, but is fast enough for our purposes.
+
+
+Notes for those who are curious:
 
 Granulepos:
   As defined by Vorbis spec:
@@ -53,42 +30,40 @@ Granulepos:
   Audio sample rate: Extract from Vorbis ID header
 
 CRC checksum used for Ogg:
-  direct algorithm ("DIRECT TABLE ALGORITHM"???),
-  initial val and final XOR = 0,
-  generator polynomial = 0x04c11db7
+  Direct algorithm.  No bit reversals.
+  Initial register value is all zeroes.  No final XOR performed at the end.
+  The generator polynomial, the value used in the XOR operations, is 0x04c11db7.
 
-  Generator polynomial is equiv to pkzip... but not the whole thing?
-
-  Yes, we have a custom CRC function for Ogg.  Lovely...
-  Assuming no reflection, init/xor 0.
-
-    Here is the specification for the CRC-32 algorithm which is reportedly
-    used in PKZip, AUTODIN II, Ethernet, and FDDI.
-    
-       Name   : "CRC-32"
-       Width  : 32        # 32-bit algorithm
-       Poly   : 04C11DB7  # Note: "unreflected"
-       Init   : FFFFFFFF  # Initial value
-       RefIn  : True      # Reflect lsb/msb on input
-       RefOut : True      # Reflect lsb/mbs on output
-       XorOut : FFFFFFFF  # Applied after refout, just before final value
-       Check  : CBF43926  # Checksum of string "123456789"
-
-
-  Steps:
-  - Apply over entire header (crc as 0)
-  - Apply over data
-  - Store into header
-
-  REFER TO: http://www.ross.net/crc/download/crc_v3.txt
-  (Still need to figure this stuff out...)
-
+  For a detailed explanation, refer to:
+  http://www.ross.net/crc/download/crc_v3.txt This doc is not
+  completely straightforward but it did enable me to write what I have
+  so far.
 
 """
 
-def calc_crc(str):
-    OGG_POLY = 0x04c11db7
-    
+import sys, argparse
+from cStringIO import StringIO
+import crc
+
+def _int(lsb_str):
+    # Not sure how to handle bytes in MSB order...
+    # Just assuming we always run using LSB.
+    result = 0
+    for i in xrange(len(lsb_str)):
+        result |= (ord(lsb_str[i]) << (8*i))
+    return result
+
+
+class NoMorePages(Exception):
+    pass
+class NoMoreBitstreams(Exception):
+    pass
+class UnexpectedContinuedPacket(Exception):
+    pass
+class UnterminatedPacket(Exception):
+    pass
+class InvalidFramingBit(Exception):
+    pass
 
 
 class OggPage(object):
@@ -262,16 +237,13 @@ class VorbisBitStream(object):
 
     def patch_length(self, new_length, verbose=True):
         current_length = self.get_length()
-        if verbose:
-            print "Current file length: {0:.2f} seconds".format(current_length)
-            print "Target file length:  {0:.2f} seconds".format(new_length)
         if new_length < current_length:
             new_granule_pos = self.id_header.audio_sample_rate * new_length
 
             last_page = self.pages[-1]
             if verbose:
                 print "Current granule position:", last_page.granule_pos
-                print "New granule position    :", new_granule_pos
+                print "New granule position:    ", new_granule_pos
 
             # Replace last page with patched version
             new_page_data = last_page.get_data_with_new_length(new_granule_pos)
@@ -352,6 +324,9 @@ ID Header:
 
 
 class CommentsHeader(VorbisHeader):
+    # This is unnecessary for the length hack, but I had already
+    # implemented it before I figured this out.  Leaving it in for
+    # those who are curious.
     def __init__(self, data):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 3:
@@ -394,6 +369,9 @@ class CommentsHeader(VorbisHeader):
 
 
 class SetupHeader(VorbisHeader):
+    # This is unnecessary for the length hack, but I had already
+    # implemented it before I figured this out.  Leaving it in for
+    # those who are curious.
     def __init__(self, data):
         VorbisHeader.__init__(self, data)
         if self.packet_type != 5:
@@ -447,22 +425,61 @@ def get_bitstreams(pages):
         except NoMoreBitstreams:
             break
 
+def parse_args():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("input_file", help="Input file.")
+    ap.add_argument("-o", "--output-file",
+                    help="Output file.  (Default: overwrite input file)")
+    ap.add_argument("-c", "--check", action="store_true",
+                    help="Check length only; do not modify file")
+    ap.add_argument("-v", "--verbose", action="store_true",
+                    help="Verbose output")
+    ap.add_argument("-l", "--length", default=105,
+                    help="Desired max length to patch into the input file.  (Default: %(default)s)")
+    return ap.parse_args()
+
+
+def pprint_time(t):
+    mins = t // 60
+    secs = t % 60
+    return "{0:d}:{1:05.2f}".format(int(mins), secs)
+
+
 def main():
-    with open(sys.argv[1], "rb") as infile:
+    options = parse_args()
+    patched = False
+    with open(options.input_file, "rb") as infile:
         page_gen = get_pages(infile)
         bitstreams = list(get_bitstreams(page_gen))
-        patched = False
         for bitstream in bitstreams:
-            print "Checksum of last page: {0:08X}".format(bitstream.pages[-1].checksum)
-            if bitstream.get_length() > 105:
+            length = bitstream.get_length()
+            if options.verbose:
+                print "Current file length: {0}".format(pprint_time(length))
+                print "Target file length:  {0}".format(pprint_time(options.length))
+            if options.check:
+                if length > options.length:
+                    print >> sys.stderr, "File exceeds {0}.  Length: {1}".format(
+                        pprint_time(options.length), pprint_time(length))
+                    return 1
+                continue
+            if length > options.length:
                 patched = True
-                bitstream.patch_length(105)
+                bitstream.patch_length(options.length, verbose=options.verbose)
     if patched:
-        print "Writing patched file to", sys.argv[1]
+        output_file = options.input_file
+        if options.output_file is not None:
+            output_file = options.output_file
+        if options.verbose:
+            print "Writing patched file to", output_file
         with open(sys.argv[1], "wb") as outfile:
             for bitstream in bitstreams:
                 bitstream.write_to_file(outfile)
+    elif options.verbose:
+        print "Not patching file; file already appears to be {0} or shorter.".format(
+            pprint_time(options.length))
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
