@@ -231,6 +231,22 @@ class VorbisBitStream(object):
         # # 2. Store all remaining packets in the bitstream
         # self.data_packets = list(packet_gen)
 
+    def get_length(self):
+        sample_rate = self.id_header.audio_sample_rate
+        current_granule_pos = self.pages[-1].granule_pos
+        return float(current_granule_pos) / sample_rate
+
+    def patch_length(self, new_length):
+        current_length = self.get_length()
+        print "> Current file length: {0:.2f} seconds".format(current_length)
+        print "> Target file length:  {0:.2f} seconds".format(new_length)
+        if new_length < current_length:
+            new_granule_pos = self.id_header.audio_sample_rate * new_length
+
+            print "**TO DO:** Patch bitstream to new length of {0:.2f} seconds".format(new_length)
+            print "CURRENT GRANULE POS:", self.pages[-1].granule_pos
+            print "NEW GRANULE POS    :", new_granule_pos
+
 
 class VorbisHeader(object):
     def __init__(self, data):
@@ -401,14 +417,15 @@ def main():
     with open(sys.argv[1], "rb") as infile:
         page_gen = get_pages(infile)
         bitstream_gen = get_bitstreams(page_gen)
+        patched = False
         for bitstream in bitstream_gen:
-            sample_rate = bitstream.id_header.audio_sample_rate
-            current_granule_pos = bitstream.pages[-1].granule_pos
-            target_granule_pos = 105 * sample_rate  # 1:45
-            print "Current granule_pos of final frame:", current_granule_pos
-            print "Target granule_pos of final frame :", target_granule_pos
-            if target_granule_pos < current_granule_pos:
-                print "TODO: patch bitstream!"
+            if bitstream.get_length() > 105:
+                patched = True
+                bitstream.patch_length(105)
+        if patched:
+            # Overwrite existing file.  **TO DO**
+            print "TO DO: Save patched file to disk"
+
 
 if __name__ == "__main__":
     main()
