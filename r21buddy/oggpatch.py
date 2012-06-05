@@ -473,7 +473,7 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
             output_file = output_file
         if verbose:
             print "Writing patched file to", output_file
-        with open(sys.argv[1], "wb") as outfile:
+        with open(output_file, "wb") as outfile:
             for bitstream in bitstreams:
                 bitstream.write_to_file(outfile)
     elif verbose:
