@@ -41,6 +41,11 @@ CRC checksum used for Ogg:
 
 """
 
+from __future__ import absolute_import
+
+
+TARGET_LENGTH = 105  # Default length to patch
+
 import sys, argparse
 from cStringIO import StringIO
 from r21buddy import crc
@@ -411,19 +416,23 @@ class SetupHeader(VorbisHeader):
         return "<SetupHeader raw:%s>" % (repr(self.raw),)
 
 
-def get_pages(infile):
+def _get_pages(infile):
     while True:
         try:
             yield OggPage(infile)
         except NoMorePages:
             break
 
-def get_bitstreams(pages):
+def _get_bitstreams(pages):
     while True:
         try:
             yield VorbisBitStream(pages)
         except NoMoreBitstreams:
             break
+
+def get_bitstreams(infile):
+    page_gen = _get_pages(infile)
+    return _get_bitstreams(page_gen)
 
 def parse_args():
     ap = argparse.ArgumentParser()
@@ -434,7 +443,7 @@ def parse_args():
                     help="Check length only; do not modify file")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="Verbose output")
-    ap.add_argument("-l", "--length", default=105,
+    ap.add_argument("-l", "--length", default=TARGET_LENGTH,
                     help="Desired max length to patch into the input file.  (Default: %(default)s)")
     return ap.parse_args()
 
@@ -445,38 +454,56 @@ def pprint_time(t):
     return "{0:d}:{1:05.2f}".format(int(mins), secs)
 
 
-def main():
-    options = parse_args()
+def patch_file(input_file, target_length=TARGET_LENGTH,
+               output_file=None, verbose=True):
     patched = False
-    with open(options.input_file, "rb") as infile:
-        page_gen = get_pages(infile)
-        bitstreams = list(get_bitstreams(page_gen))
+    with open(input_file, "rb") as infile:
+        bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
             length = bitstream.get_length()
-            if options.verbose:
-                print "Current file length: {0}".format(pprint_time(length))
-                print "Target file length:  {0}".format(pprint_time(options.length))
-            if options.check:
-                if length > options.length:
-                    print >> sys.stderr, "File exceeds {0}.  Length: {1}".format(
-                        pprint_time(options.length), pprint_time(length))
-                    return 1
-                continue
-            if length > options.length:
-                patched = True
-                bitstream.patch_length(options.length, verbose=options.verbose)
+        if verbose:
+            print "Current file length: {0}".format(pprint_time(length))
+            print "Target file length:  {0}".format(pprint_time(target_length))
+        if length > target_length:
+            patched = True
+            bitstream.patch_length(target_length, verbose=verbose)
     if patched:
-        output_file = options.input_file
-        if options.output_file is not None:
-            output_file = options.output_file
-        if options.verbose:
+        output_file = input_file
+        if output_file is not None:
+            output_file = output_file
+        if verbose:
             print "Writing patched file to", output_file
         with open(sys.argv[1], "wb") as outfile:
             for bitstream in bitstreams:
                 bitstream.write_to_file(outfile)
-    elif options.verbose:
+    elif verbose:
         print "Not patching file; file already appears to be {0} or shorter.".format(
-            pprint_time(options.length))
+            pprint_time(target_length))
+
+def check_file(input_file, target_length, verbose=True):
+    with open(input_file, "rb") as infile:
+        bitstreams = list(get_bitstreams(infile))
+        for bitstream in bitstreams:
+            length = bitstream.get_length()
+            if verbose:
+                print "Current file length: {0}".format(pprint_time(length))
+                print "Target file length:  {0}".format(pprint_time(target_length))
+
+            if length > target_length:
+                print >> sys.stderr, "File exceeds {0}.  Length: {1}".format(
+                    pprint_time(target_length), pprint_time(length))
+                return False
+            continue
+
+    return True
+
+def main():
+    options = parse_args()
+    if options.check:
+        check_file(options.input_file, options.length, verbose=options.verbose)
+    else:
+        patch_file(options.input_file, options.length, output_file=options.output_file, verbose=options.verbose)
+
 
     return 0
 

@@ -38,7 +38,15 @@ def copy_songs(input_path, target_dir, verbose=False):
     pass
 
 def patch_length(target_dir, verbose=False):
-    pass
+    song_dir = os.path.join(target_dir, "In The Groove 2", "Songs")
+    all_files = (os.path.join(song_dir, f) for f in os.listdir(song_dir))
+    dirs = (d for d in all_files if os.path.isdir(d))
+    for song_dir in dirs:
+        song_files = (os.path.join(os.listdir(song_dir), f)
+                      for f in os.listdir(song_dir))
+        ogg_files = (f for f in song_files if f.endswith(".ogg"))
+        for ogg_file in ogg_files:
+            oggpatch.patch_file(ogg_file, verbose=verbose)
 
 def main():
     options = parse_args()
