@@ -43,7 +43,7 @@ CRC checksum used for Ogg:
 
 import sys, argparse
 from cStringIO import StringIO
-import crc
+from r21buddy import crc
 
 def _int(lsb_str):
     # Not sure how to handle bytes in MSB order...
