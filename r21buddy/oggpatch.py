@@ -457,6 +457,9 @@ def pprint_time(t):
 def patch_file(input_file, target_length=TARGET_LENGTH,
                output_file=None, verbose=True):
     patched = False
+    if target_length < 0:
+        print >> sys.stderr, "Bad length ({0}), not patching file".format(target_length)
+        return
     with open(input_file, "rb") as infile:
         bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
@@ -468,9 +471,8 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
             patched = True
             bitstream.patch_length(target_length, verbose=verbose)
     if patched:
-        output_file = input_file
-        if output_file is not None:
-            output_file = output_file
+        if output_file is None:
+            output_file = input_file
         if verbose:
             print "Writing patched file to", output_file
         with open(output_file, "wb") as outfile:
@@ -481,6 +483,9 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
             pprint_time(target_length))
 
 def check_file(input_file, target_length, verbose=True):
+    if target_length < 0:
+        print >> sys.stderr, "Bad length ({0}), not patching file".format(target_length)
+        return
     with open(input_file, "rb") as infile:
         bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
@@ -493,6 +498,9 @@ def check_file(input_file, target_length, verbose=True):
                 print >> sys.stderr, "File exceeds {0}.  Length: {1}".format(
                     pprint_time(target_length), pprint_time(length))
                 return False
+            else:
+                if verbose:
+                    print "File passes length check."
             continue
 
     return True
