@@ -124,8 +124,19 @@ class MainWindow(object):
         Tkinter.Button(f, text="Add...", command=self.on_inputdir_add, width=10) \
             .pack(side=Tkinter.LEFT)
 
-        # Sub-frame: list with scroll on left, 1x1,1x1,1x1 buttons on right
-        Tkinter.Label(control_frame, text="PLACEHOLDER FOR INPUT DIR MANAGEMENT").pack(anchor=Tkinter.W)
+        input_dir_frame = Tkinter.LabelFrame(
+            control_frame, text="Selected input directories")
+        input_dir_frame.pack(fill=Tkinter.BOTH, expand=True)
+        self.input_dirs = Tkinter.Listbox(input_dir_frame)
+        self.input_dirs.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
+        button_frame = Tkinter.Frame(input_dir_frame)
+        button_frame.pack(side=Tkinter.RIGHT, anchor=Tkinter.N)
+        Tkinter.Button(button_frame, text="Move Up", width=10,
+                       command=self.on_move_up).pack()
+        Tkinter.Button(button_frame, text="Move Down", width=10,
+                       command=self.on_move_down).pack()
+        Tkinter.Button(button_frame, text="Delete", width=10,
+                       command=self.on_delete).pack()
 
         self.skip_ogg_patch = Tkinter.IntVar()
         Tkinter.Checkbutton(
@@ -149,9 +160,14 @@ class MainWindow(object):
 
     def on_inputdir_add(self):
         print "on_inputdir_add"
-
     def on_run(self):
         print "on_run"
+    def on_move_up(self):
+        print "on_move_up"
+    def on_move_down(self):
+        print "on_move_down"
+    def on_delete(self):
+        print "on_delete"
 
     def log(self, msg, *tags):
         self.log_window.insert(Tkinter.INSERT, msg, *tags)
