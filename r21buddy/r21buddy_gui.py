@@ -53,9 +53,32 @@ class Directory(CompositeControl):
         self.entry.pack(side=Tkinter.LEFT, fill=Tkinter.X, expand=True)
         self.button.pack(side=Tkinter.LEFT)
 
-    def configure(self, **kwargs):
-        self.entry.configure(**kwargs)
-        self.button.configure(**kwargs)
+
+class InputDirs(object):
+    def __init__(self, parent):
+        self.frame = Tkinter.Frame(parent)
+        self.frame.rowconfigure(0, weight=1)
+        self.frame.columnconfigure(0, weight=1)
+        self.input_dirs = Tkinter.Listbox(
+            self.frame, width=1, height=1, activestyle=Tkinter.NONE)
+        self.input_dirs.grid(
+            row=0, column=0,
+            sticky=(Tkinter.N, Tkinter.E, Tkinter.S, Tkinter.W))
+        self.yscroll = Tkinter.Scrollbar(self.frame)
+        self.yscroll.grid(row=0, column=1, sticky=(Tkinter.N, Tkinter.S))
+        self.xscroll = Tkinter.Scrollbar(self.frame, orient=Tkinter.HORIZONTAL)
+        self.xscroll.grid(row=1, column=0, sticky=(Tkinter.W, Tkinter.E))
+        self.input_dirs.configure(yscrollcommand=self.yscroll.set)
+        self.input_dirs.configure(xscrollcommand=self.xscroll.set)
+        self.yscroll.configure(command=self.input_dirs.yview)
+        self.xscroll.configure(command=self.input_dirs.xview)
+
+    def pack(self, *args, **kwargs):
+        self.frame.pack(*args, **kwargs)
+
+    def __getattr__(self, key):
+        """Passthrough for most functions to the ListBox inside."""
+        return getattr(self.input_dirs, key)
 
 
 class MainWindow(object):
@@ -77,48 +100,40 @@ class MainWindow(object):
         f.pack(anchor=Tkinter.W, fill=Tkinter.X, expand=True)
         Tkinter.Label(f, text="Input directories:") \
             .pack(side=Tkinter.LEFT)
-        Tkinter.Button(f, text="Add...", command=self.on_inputdir_add, width=10) \
-            .pack(side=Tkinter.LEFT)
+        self.add_btn = Tkinter.Button(
+            f, text="Add...", command=self.on_inputdir_add, width=10)
+        self.add_btn.pack(side=Tkinter.LEFT)
         self.last_dir = None  # For tracking the last input directory added
 
         inputdir_frame = Tkinter.LabelFrame(control_frame, text="Selected input directories")
         inputdir_frame.pack(anchor=Tkinter.W, fill=Tkinter.X, expand=True)
 
         # Create listbox w/ scrollbars
-        listbox_grid = Tkinter.Frame(inputdir_frame, relief=Tkinter.GROOVE, borderwidth=2)
-        listbox_grid.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
-        listbox_grid.rowconfigure(0, weight=1)
-        listbox_grid.columnconfigure(0, weight=1)
-        self.input_dirs = Tkinter.Listbox(
-            listbox_grid, width=1, height=1, activestyle=Tkinter.NONE)
-        self.input_dirs.grid(
-            row=0, column=0,
-            sticky=(Tkinter.N, Tkinter.E, Tkinter.S, Tkinter.W))
-        yscroll = Tkinter.Scrollbar(listbox_grid)
-        yscroll.grid(row=0, column=1, sticky=(Tkinter.N, Tkinter.S))
-        xscroll = Tkinter.Scrollbar(listbox_grid, orient=Tkinter.HORIZONTAL)
-        xscroll.grid(row=1, column=0, sticky=(Tkinter.W, Tkinter.E))
-        self.input_dirs.configure(yscrollcommand=yscroll.set)
-        self.input_dirs.configure(xscrollcommand=xscroll.set)
-        yscroll.configure(command=self.input_dirs.yview)
-        xscroll.configure(command=self.input_dirs.xview)
+        self.input_dirs = InputDirs(inputdir_frame)
+        self.input_dirs.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
 
         # Create buttons to control listbox
         button_frame = Tkinter.Frame(inputdir_frame)
         button_frame.pack(side=Tkinter.LEFT, anchor=Tkinter.N)
-        Tkinter.Button(button_frame, text="Move Up", width=10,
-                       command=self.on_move_up).pack()
-        Tkinter.Button(button_frame, text="Move Down", width=10,
-                       command=self.on_move_down).pack()
-        Tkinter.Button(button_frame, text="Delete", width=10,
-                       command=self.on_delete).pack()
+        self.move_up_btn = Tkinter.Button(
+            button_frame, text="Move Up", width=10, command=self.on_move_up)
+        self.move_up_btn.pack()
+        self.move_down_btn = Tkinter.Button(
+            button_frame, text="Move Down", width=10, command=self.on_move_down)
+        self.move_down_btn.pack()
+        self.delete_btn = Tkinter.Button(
+            button_frame, text="Delete", width=10, command=self.on_delete)
+        self.delete_btn.pack()
 
         self.skip_ogg_patch = Tkinter.IntVar()
-        Tkinter.Checkbutton(
+        self.skip_ogg_chk = Tkinter.Checkbutton(
             control_frame, text="Check length only; do not modify file",
-            variable=self.skip_ogg_patch).pack(anchor=Tkinter.W)
+            variable=self.skip_ogg_patch)
+        self.skip_ogg_chk.pack(anchor=Tkinter.W)
 
-        Tkinter.Button(control_frame, text="Run", command=self.on_run, width=10).pack()
+        self.run_btn = Tkinter.Button(
+            control_frame, text="Run", command=self.on_run, width=10)
+        self.run_btn.pack()
 
         # Scrollable text area for log output
         log_frame = Tkinter.LabelFrame(main_frame, text="Log")
@@ -130,6 +145,25 @@ class MainWindow(object):
         scroll.pack(side=Tkinter.RIGHT, fill=Tkinter.Y)
         self.log_window.configure(yscrollcommand=scroll.set)
         scroll.configure(command=self.log_window.yview)
+
+        self.toggle_control_set = (
+            self.target_dir,
+            self.add_btn,
+            self.input_dirs,
+            self.move_up_btn,
+            self.move_down_btn,
+            self.delete_btn,
+            self.skip_ogg_chk,
+            self.run_btn,
+            )
+
+    def disable(self):
+        for control in self.toggle_control_set:
+            control.configure(state=Tkinter.DISABLED)
+
+    def enable(self):
+        for control in self.toggle_control_set:
+            control.configure(state=Tkinter.NORMAL)
 
     def mainloop(self):
         self.root.mainloop()
@@ -197,6 +231,7 @@ class MainWindow(object):
         no_length_patch = bool(self.skip_ogg_patch.get())
 
         # Disable GUI
+        self.disable()
 
         logger = ThreadQueueLogger()
 
@@ -229,6 +264,7 @@ class MainWindow(object):
             if len(msg) > 0:
                 append_log(msg)
             append_log("Operation complete.\n\n")
+            self.enable()
 
     def log(self, msg, *tags):
         self.log_window.insert(Tkinter.INSERT, msg, *tags)
