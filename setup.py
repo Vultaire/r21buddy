@@ -21,15 +21,16 @@ setup(
         "r21buddy/r21buddy.py",
         "r21buddy/oggpatch.py",
         ],
-    # Cannot figure out why, but the GUI executables do not work :(
-    #windows=[
-    #    "r21buddy/r21buddy_gui.py",
-    #    "r21buddy/oggpatch_gui.py",
-    #    ],
+    windows=[
+        "r21buddy/r21buddy_gui.py",
+        "r21buddy/oggpatch_gui.py",
+        ],
     zipfile=None,
     options={
         "py2exe": {
-            "bundle_files": 1,
+            # Currently, the GUIs will not build if the below options
+            # are enabled.
+            #"bundle_files": 1,
             },
         },
     )
