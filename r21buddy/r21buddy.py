@@ -6,7 +6,7 @@ This is the console version; a GUI version is intended eventually.
 
 from __future__ import absolute_import
 
-import os, sys, argparse, shutil
+import os, sys, argparse, shutil, traceback
 from r21buddy import oggpatch
 from r21buddy.logger import logger
 
@@ -107,18 +107,21 @@ def patch_length(target_dir, verbose=False):
 
 def run(target_dir, input_paths, length_patch=True, verbose=False, ext_logger=None):
     global logger
-    if logger is not None:
-        logger = ext_logger
-        oggpatch.set_logger(logger)
-    create_target_dir_structure(target_dir, verbose=verbose)
+    try:
+        if logger is not None:
+            logger = ext_logger
+            oggpatch.set_logger(logger)
+        create_target_dir_structure(target_dir, verbose=verbose)
 
-    for input_path in input_paths:
-        copy_songs(input_path, target_dir, verbose=verbose)
+        for input_path in input_paths:
+            copy_songs(input_path, target_dir, verbose=verbose)
 
-    # *NOTE:* If no input paths are specified, this tool can be used
-    # to patch the length on existing ogg files in the target dir.
-    if length_patch:
-        patch_length(target_dir, verbose=verbose)
+        # *NOTE:* If no input paths are specified, this tool can be used
+        # to patch the length on existing ogg files in the target dir.
+        if length_patch:
+            patch_length(target_dir, verbose=verbose)
+    except:
+        logger.error(traceback.format_exc())
 
 def main():
     options = parse_args()
