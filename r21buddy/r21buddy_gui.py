@@ -53,64 +53,6 @@ class MainWindow(object):
         main_frame = Tkinter.Frame(self.root, padx=5, pady=5)
         main_frame.pack(fill=Tkinter.BOTH, expand=True)
 
-        """
-        Layouts:
-
-        ----------------------------------------
-
-        Target dir: [______________] [Browse...]
-
-        Input directories: [Add ...]
-
-        C:/foo/bar   [Up] [Down] [Drop]  ^
-        C:/foo/bar2  [Up] [Down] [Drop]  o
-        C:/foo/bar3  [Up] [Down] [Drop]  |
-        C:/foo/bar3  [Up] [Down] [Drop]  |
-        C:/foo/bar3  [Up] [Down] [Drop]  v
-
-        [ ] Don't apply the Ogg length patch
-
-        [Run]
-
-        +-Log------------+
-        |<log...>        |
-        |                |
-        |                |
-        |                |
-        |                |
-        |                |
-        +----------------+
-
-        ----------------------------------------
-
-        Target dir: [______________] [Browse...]
-
-        Input directories: [Add ...]
-
-        +--------------+
-        |C:/foo/bar   ^|[Move Up]
-        |C:/foo/bar   o|
-        |C:/foo/bar2  ||[Move Down]
-        |C:/foo/bar3  ||
-        |C:/foo/bar3  ||
-        |C:/foo/bar3  v|[Drop]
-        +--------------+
-        [ ] Don't apply the Ogg length patch
-
-        [Run]
-
-        +-Log------------+
-        |<log...>        |
-        |                |
-        |                |
-        |                |
-        |                |
-        |                |
-        +----------------+
-
-
-        """
-
         control_frame = Tkinter.Frame(main_frame)
         control_frame.pack(anchor=Tkinter.W)
 
@@ -124,13 +66,31 @@ class MainWindow(object):
         Tkinter.Button(f, text="Add...", command=self.on_inputdir_add, width=10) \
             .pack(side=Tkinter.LEFT)
 
-        input_dir_frame = Tkinter.LabelFrame(
-            control_frame, text="Selected input directories")
-        input_dir_frame.pack(fill=Tkinter.BOTH, expand=True)
-        self.input_dirs = Tkinter.Listbox(input_dir_frame)
-        self.input_dirs.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
-        button_frame = Tkinter.Frame(input_dir_frame)
-        button_frame.pack(side=Tkinter.RIGHT, anchor=Tkinter.N)
+        inputdir_frame = Tkinter.LabelFrame(control_frame, text="Selected input directories")
+        inputdir_frame.pack(anchor=Tkinter.W, fill=Tkinter.X, expand=True)
+
+        # Create listbox w/ scrollbars
+        listbox_grid = Tkinter.Frame(inputdir_frame, relief=Tkinter.GROOVE, borderwidth=2)
+        listbox_grid.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
+        listbox_grid.rowconfigure(0, weight=1)
+        listbox_grid.columnconfigure(0, weight=1)
+        self.input_dirs = Tkinter.Listbox(
+            listbox_grid, width=1, height=1, activestyle=Tkinter.NONE)
+        self.input_dirs.grid(
+            row=0, column=0,
+            sticky=(Tkinter.N, Tkinter.E, Tkinter.S, Tkinter.W))
+        yscroll = Tkinter.Scrollbar(listbox_grid)
+        yscroll.grid(row=0, column=1, sticky=(Tkinter.N, Tkinter.S))
+        xscroll = Tkinter.Scrollbar(listbox_grid, orient=Tkinter.HORIZONTAL)
+        xscroll.grid(row=1, column=0, sticky=(Tkinter.W, Tkinter.E))
+        self.input_dirs.configure(yscrollcommand=yscroll.set)
+        self.input_dirs.configure(xscrollcommand=xscroll.set)
+        yscroll.configure(command=self.input_dirs.yview)
+        xscroll.configure(command=self.input_dirs.xview)
+
+        # Create buttons to control listbox
+        button_frame = Tkinter.Frame(inputdir_frame)
+        button_frame.pack(side=Tkinter.LEFT, anchor=Tkinter.N)
         Tkinter.Button(button_frame, text="Move Up", width=10,
                        command=self.on_move_up).pack()
         Tkinter.Button(button_frame, text="Move Down", width=10,
@@ -148,26 +108,64 @@ class MainWindow(object):
         # Scrollable text area for log output
         log_frame = Tkinter.LabelFrame(main_frame, text="Log")
         log_frame.pack(fill=Tkinter.BOTH, expand=True)
-        scroll = Tkinter.Scrollbar(log_frame)
         # Note: using really small width since we'll auto-expand.
-        self.log_window = Tkinter.Text(log_frame, yscrollcommand=scroll.set,
-                                       width=1, height=10)
+        self.log_window = Tkinter.Text(log_frame, width=1, height=10)
         self.log_window.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
+        scroll = Tkinter.Scrollbar(log_frame)
         scroll.pack(side=Tkinter.RIGHT, fill=Tkinter.Y)
+        self.log_window.configure(yscrollcommand=scroll.set)
+        scroll.configure(command=self.log_window.yview)
 
     def mainloop(self):
         self.root.mainloop()
 
     def on_inputdir_add(self):
-        print "on_inputdir_add"
+        path = tkFileDialog.askdirectory(mustexist=True)
+        if len(path) == 0:
+            return
+        if path in self.input_dirs.get(0, Tkinter.END):
+            tkMessageBox.showinfo(
+                title="Directory already queued",
+                message="This directory is already in the queue.")
+        else:
+            self.input_dirs.insert(Tkinter.END, path)
+
+    def on_move_up(self):
+        input_indices = map(int, self.input_dirs.curselection())
+        if len(input_indices) < 1:
+            return
+        i = input_indices[0]
+        if i > 0:
+            self.input_dirs.selection_clear(i)
+            val = self.input_dirs.get(i)
+            self.input_dirs.delete(i)
+            self.input_dirs.insert(i-1, val)
+            self.input_dirs.selection_set(i-1)
+            self.input_dirs.see(i-1)
+
+    def on_move_down(self):
+        input_indices = map(int, self.input_dirs.curselection())
+        if len(input_indices) < 1:
+            return
+        i = input_indices[0]
+        if i < self.input_dirs.size() - 1:
+            self.input_dirs.selection_clear(i)
+            val = self.input_dirs.get(i)
+            self.input_dirs.delete(i)
+            self.input_dirs.insert(i+1, val)
+            self.input_dirs.selection_set(i+1)
+            self.input_dirs.see(i+1)
+
+    def on_delete(self):
+        input_indices = map(int, self.input_dirs.curselection())
+        if len(input_indices) < 1:
+            return
+        i = input_indices[0]
+        self.input_dirs.selection_clear(i)
+        self.input_dirs.delete(i)
+
     def on_run(self):
         print "on_run"
-    def on_move_up(self):
-        print "on_move_up"
-    def on_move_down(self):
-        print "on_move_down"
-    def on_delete(self):
-        print "on_delete"
 
     def log(self, msg, *tags):
         self.log_window.insert(Tkinter.INSERT, msg, *tags)
