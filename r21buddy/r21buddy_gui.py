@@ -43,6 +43,7 @@ class Directory(CompositeControl):
         if len(initialdir) > 0:
             dialog_args["initialdir"] = initialdir
         path = tkFileDialog.askdirectory(**dialog_args)
+        path = path.replace("/", os.sep)
         if len(path) > 0:
             self.str_var.set(path)
 
@@ -138,6 +139,7 @@ class MainWindow(object):
         if self.last_dir is not None:
             dialog_kwargs["initialdir"] = self.last_dir
         path = tkFileDialog.askdirectory(**dialog_kwargs)
+        path = path.replace("/", os.sep)
         if len(path) == 0:
             return
         self.last_dir = path
