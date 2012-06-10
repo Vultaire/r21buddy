@@ -7,7 +7,7 @@ from r21buddy import oggpatch, r21buddy
 from r21buddy.logger import ThreadQueueLogger
 
 # Interval to poll stdout/stderr capture of r21buddy console code.
-POLL_INTERVAL = 0.1
+POLL_INTERVAL = 100  # milliseconds
 
 
 class CompositeControl(object):
@@ -134,6 +134,9 @@ class MainWindow(object):
     def mainloop(self):
         self.root.mainloop()
 
+    def after(self, *args, **kwargs):
+        self.root.after(*args, **kwargs)
+
     def on_inputdir_add(self):
         dialog_kwargs = {"mustexist": True}
         if self.last_dir is not None:
@@ -195,38 +198,37 @@ class MainWindow(object):
 
         # Disable GUI
 
+        logger = ThreadQueueLogger()
+
         # To avoid locking the GUI, run execution in another thread.
-        threading.Thread(
-            target=self._on_run,
-            args=(target_dir, input_paths, no_length_patch)
-            ).start()
+        thread = threading.Thread(
+            target=r21buddy.run,
+            args=(target_dir, input_paths),
+            kwargs={"length_patch": (not no_length_patch), "verbose": True,
+                    "ext_logger": logger})
+        thread.start()
 
-    def _on_run(self, target_dir, input_paths, no_length_patch):
+        # Initiate a polling function which will update until the
+        # thread finishes.
+        self._on_run(thread, logger)
 
+    def _on_run(self, thread, logger):
         def append_log(msg):
             self.log_window.configure(state=Tkinter.NORMAL)
             self.log_window.insert(Tkinter.END, msg)
             self.log_window.see(Tkinter.END)
             self.log_window.configure(state=Tkinter.DISABLED)
 
-        logger = ThreadQueueLogger()
-        t = threading.Thread(
-            target=r21buddy.run,
-            args=(target_dir, input_paths),
-            kwargs={"length_patch": (not no_length_patch), "verbose": True,
-                    "ext_logger": logger})
-        t.start()
-        while t.is_alive():
-            msg = logger.read()
-            if len(msg) > 0:
-                append_log(msg)
-            if not t.is_alive():
-                break
-            time.sleep(POLL_INTERVAL)
         msg = logger.read()
         if len(msg) > 0:
             append_log(msg)
-        append_log("Operation complete.\n\n")
+        if thread.is_alive():
+            self.after(POLL_INTERVAL, self._on_run, thread, logger)
+        else:
+            msg = logger.read()
+            if len(msg) > 0:
+                append_log(msg)
+            append_log("Operation complete.\n\n")
 
     def log(self, msg, *tags):
         self.log_window.insert(Tkinter.INSERT, msg, *tags)
