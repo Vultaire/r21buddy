@@ -208,7 +208,7 @@ class VorbisBitStream(object):
                 if page.last_page:
                     break
             if len(data) > 0:
-                raise UnterminatedPacket("".join(data))
+                raise UnterminatedPacket(repr("".join(data)))
 
         self.pages = list(pages)  # Needed to recreate stream with updated final page
 

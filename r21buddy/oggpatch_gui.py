@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, traceback
 from cStringIO import StringIO
 import Tkinter, tkFileDialog, tkMessageBox
 from r21buddy import oggpatch
@@ -185,8 +185,11 @@ class MainWindow(object):
                              "output file name."))
 
             self.hijack_output()
-            oggpatch.patch_file(
-                input_file, length, output_file=output_file, verbose=True)
+            try:
+                oggpatch.patch_file(
+                    input_file, length, output_file=output_file, verbose=True)
+            except:
+                print traceback.format_exc()
             self.restore_output()
         elif mode == "check":
             self.hijack_output()
