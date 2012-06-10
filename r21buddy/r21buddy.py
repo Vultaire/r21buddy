@@ -106,19 +106,21 @@ def patch_length(target_dir, verbose=False):
             if verbose:
                 print  # Just create a newline
 
-def main():
-    options = parse_args()
+def run(target_dir, input_paths, length_patch=True, verbose=False):
+    create_target_dir_structure(target_dir, verbose=verbose)
 
-    create_target_dir_structure(options.target_dir, verbose=options.verbose)
-
-    for input_path in options.input_path:
-        copy_songs(input_path, options.target_dir, verbose=options.verbose)
+    for input_path in input_paths:
+        copy_songs(input_path, target_dir, verbose=verbose)
 
     # *NOTE:* If no input paths are specified, this tool can be used
     # to patch the length on existing ogg files in the target dir.
-    if options.length_patch:
-        patch_length(options.target_dir, verbose=options.verbose)
+    if length_patch:
+        patch_length(target_dir, verbose=verbose)
 
+def main():
+    options = parse_args()
+    run(options.target_dir, options.input_path,
+        length_patch=options.length_patch, verbose=options.verbose)
     return 0
 
 if __name__ == "__main__":

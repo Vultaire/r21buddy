@@ -1,7 +1,9 @@
+from __future__ import absolute_import
+
 import os, sys
 from cStringIO import StringIO
 import Tkinter, tkFileDialog, tkMessageBox
-from r21buddy import oggpatch
+from r21buddy import oggpatch, r21buddy
 
 
 class CompositeControl(object):
@@ -29,6 +31,9 @@ class Directory(CompositeControl):
         self.save = save
 
     def on_browse(self):
+        # Meh, no "Create Folder" button for this dialog??  And
+        # creating directories via adding slashes is counterintuitive
+        # to say the least.
         path = tkFileDialog.askdirectory(mustexist=True)
         if len(path) > 0:
             self.str_var.set(path)
@@ -54,10 +59,10 @@ class MainWindow(object):
         main_frame.pack(fill=Tkinter.BOTH, expand=True)
 
         control_frame = Tkinter.Frame(main_frame)
-        control_frame.pack(anchor=Tkinter.W)
+        control_frame.pack(anchor=Tkinter.W, fill=Tkinter.X)
 
         self.target_dir = Directory(control_frame, "Target directory:")
-        self.target_dir.pack(anchor=Tkinter.W)
+        self.target_dir.pack(anchor=Tkinter.W, fill=Tkinter.X)
 
         f = Tkinter.Frame(control_frame)
         f.pack(anchor=Tkinter.W, fill=Tkinter.X, expand=True)
@@ -109,7 +114,7 @@ class MainWindow(object):
         log_frame = Tkinter.LabelFrame(main_frame, text="Log")
         log_frame.pack(fill=Tkinter.BOTH, expand=True)
         # Note: using really small width since we'll auto-expand.
-        self.log_window = Tkinter.Text(log_frame, width=1, height=10)
+        self.log_window = Tkinter.Text(log_frame, width=1, height=10, state=Tkinter.DISABLED)
         self.log_window.pack(side=Tkinter.LEFT, fill=Tkinter.BOTH, expand=True)
         scroll = Tkinter.Scrollbar(log_frame)
         scroll.pack(side=Tkinter.RIGHT, fill=Tkinter.Y)
@@ -165,7 +170,21 @@ class MainWindow(object):
         self.input_dirs.delete(i)
 
     def on_run(self):
-        print "on_run"
+        target_dir = self.target_dir.get()
+        if len(target_dir) == 0:
+            tkMessageBox.showinfo(title="No target directory",
+                                  message="No target directory selected.")
+            return
+        input_paths = self.input_dirs.get(0, Tkinter.END)
+        no_length_patch = bool(self.skip_ogg_patch.get())
+        self.hijack_output()
+        r21buddy.run(target_dir, input_paths,
+                     length_patch=(not no_length_patch), verbose=True)
+        output = self.restore_output()
+        self.log_window.configure(state=Tkinter.NORMAL)
+        self.log_window.insert(Tkinter.END, output)
+        self.log_window.see(Tkinter.END)
+        self.log_window.configure(state=Tkinter.DISABLED)
 
     def log(self, msg, *tags):
         self.log_window.insert(Tkinter.INSERT, msg, *tags)
@@ -180,9 +199,7 @@ class MainWindow(object):
         sys.stdout = self.old_stdout
         sys.stderr = self.old_stderr
         output = sio.getvalue()
-        tkMessageBox.showinfo(
-            title="Execution log",
-            message=output)
+        return output
 
 def main():
     root = MainWindow()
