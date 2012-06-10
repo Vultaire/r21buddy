@@ -48,9 +48,8 @@ def copy_songs(input_path, target_dir, verbose=False):
     if len(dirs) > 0:
         for d in dirs:
             copy_songs(d, target_dir, verbose=verbose)
-        return
 
-    # Otherwise, check whether this is a song directory.
+    # Check whether this is a song directory.
     files = [f for f in all_files if os.path.isfile(f)]
     stepfile_exists = any(
         (f.endswith(".sm") or f.endswith(".dwi"))
