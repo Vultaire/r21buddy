@@ -1,7 +1,7 @@
 from distutils.core import setup
 import py2exe
 
-version = "0.1"
+version = "1.0"
 
 
 setup(
