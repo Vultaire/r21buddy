@@ -43,12 +43,13 @@ CRC checksum used for Ogg:
 
 from __future__ import absolute_import
 
-
-TARGET_LENGTH = 105  # Default length to patch
-
 import sys, argparse
 from cStringIO import StringIO
 from r21buddy import crc
+from r21buddy.logger import logger
+
+
+TARGET_LENGTH = 105  # Default length to patch
 
 def _int(lsb_str):
     # Not sure how to handle bytes in MSB order...
@@ -247,8 +248,8 @@ class VorbisBitStream(object):
 
             last_page = self.pages[-1]
             if verbose:
-                print "Current granule position:", last_page.granule_pos
-                print "New granule position:    ", new_granule_pos
+                logger.info("Current granule position: {0}".format(last_page.granule_pos))
+                logger.info("New granule position:     {0}".format(new_granule_pos))
 
             # Replace last page with patched version
             new_page_data = last_page.get_data_with_new_length(new_granule_pos)
@@ -458,15 +459,15 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
                output_file=None, verbose=True):
     patched = False
     if target_length < 0:
-        print >> sys.stderr, "Bad length ({0}), not patching file".format(target_length)
+        logger.error("Bad length ({0}), not patching file".format(target_length))
         return
     with open(input_file, "rb") as infile:
         bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
             length = bitstream.get_length()
         if verbose:
-            print "Current file length: {0}".format(pprint_time(length))
-            print "Target file length:  {0}".format(pprint_time(target_length))
+            logger.info("Current file length: {0}".format(pprint_time(length)))
+            logger.info("Target file length:  {0}".format(pprint_time(target_length)))
         if length > target_length:
             patched = True
             bitstream.patch_length(target_length, verbose=verbose)
@@ -474,36 +475,42 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
         if output_file is None:
             output_file = input_file
         if verbose:
-            print "Writing patched file to", output_file
+            logger.info("Writing patched file to {0}".format(output_file))
         with open(output_file, "wb") as outfile:
             for bitstream in bitstreams:
                 bitstream.write_to_file(outfile)
     elif verbose:
-        print "Not patching file; file already appears to be {0} or shorter.".format(
-            pprint_time(target_length))
+        logger.info("Not patching file; file already appears to be {0} or shorter.".format(
+            pprint_time(target_length)))
 
 def check_file(input_file, target_length, verbose=True):
     if target_length < 0:
-        print >> sys.stderr, "Bad length ({0}), not patching file".format(target_length)
+        logger.error("Bad length ({0}), not patching file".format(target_length))
         return
     with open(input_file, "rb") as infile:
         bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
             length = bitstream.get_length()
             if verbose:
-                print "Current file length: {0}".format(pprint_time(length))
-                print "Target file length:  {0}".format(pprint_time(target_length))
+                logger.info("Current file length: {0}".format(pprint_time(length)))
+                logger.info("Target file length:  {0}".format(pprint_time(target_length)))
 
             if length > target_length:
-                print >> sys.stderr, "File exceeds {0}.  Length: {1}".format(
-                    pprint_time(target_length), pprint_time(length))
+                logger.error("File exceeds {0}.  Length: {1}".format(
+                    pprint_time(target_length), pprint_time(length)))
                 return False
             else:
                 if verbose:
-                    print "File passes length check."
+                    logger.info("File passes length check.")
             continue
 
     return True
+
+def set_logger(_logger):
+    """Used for calling this module's logic via GUIs."""
+    # Yes, a bit kludgy, but it works...
+    global logger
+    logger = _logger
 
 def main():
     options = parse_args()
@@ -511,8 +518,6 @@ def main():
         check_file(options.input_file, options.length, verbose=options.verbose)
     else:
         patch_file(options.input_file, options.length, output_file=options.output_file, verbose=options.verbose)
-
-
     return 0
 
 

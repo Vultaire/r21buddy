@@ -8,6 +8,8 @@ from __future__ import absolute_import
 
 import os, sys, argparse, shutil
 from r21buddy import oggpatch
+from r21buddy.logger import logger
+
 
 def parse_args():
     ap = argparse.ArgumentParser()
@@ -31,12 +33,12 @@ def create_target_dir_structure(target_dir, verbose=False):
     if not os.path.exists(song_dir):
         os.makedirs(os.path.join(target_dir, "In The Groove 2", "Songs"))
         if verbose:
-            print "Created directory:", song_dir
+            logger.info("Created directory: {0}".format(song_dir))
     elif not os.path.isdir(song_dir):
         raise Exception("Target path is not a directory", song_dir)
     else:
         if verbose:
-            print "Directory already exists:", song_dir
+            logger.info("Directory already exists: {0}".format(song_dir))
 
 def copy_songs(input_path, target_dir, verbose=False):
     all_files = [os.path.join(input_path, f) for f in os.listdir(input_path)]
@@ -65,13 +67,13 @@ def copy_songs(input_path, target_dir, verbose=False):
     mp3_exists = any(f.endswith(".mp3") for f in all_files)
 
     if not sm_exists:
-        print >> sys.stderr, "Directory {0}: Could not find .sm; only .dwi was found.  Skipping."
+        logger.error("Directory {0}: Could not find .sm; only .dwi was found.  Skipping.".format(input_path))
         return
     if not ogg_exists:
         if any(f.endswith(".mp3") for f in all_files):
-            print >> sys.stderr, "Directory {0}: Could not find .ogg; only .mp3 was found.  Skipping."
+            logger.error("Directory {0}: Could not find .ogg; only .mp3 was found.  Skipping.".format(input_path))
         else:
-            print >> sys.stderr, "Directory {0}: Could not find .ogg.  Skipping."
+            logger.error("Directory {0}: Could not find .ogg.  Skipping.".format(input_path))
         return
 
     # We are compatible.  Check for destination directory; complain
@@ -80,7 +82,7 @@ def copy_songs(input_path, target_dir, verbose=False):
     target_song_dir = os.path.join(
         target_dir, "In The Groove 2", "Songs", song_dir_name)
     if os.path.exists(target_song_dir):
-        print >> sys.stderr, "ERROR: {0} already exists; not copying files from {1}.".format(target_song_dir, input_path)
+        logger.error("ERROR: {0} already exists; not copying files from {1}.".format(target_song_dir, input_path))
         return
 
     os.makedirs(target_song_dir)
@@ -89,7 +91,7 @@ def copy_songs(input_path, target_dir, verbose=False):
             dest_file = os.path.join(
                 target_song_dir, os.path.basename(src_file))
             if verbose:
-                print "Copying {0} to {1}...".format(src_file, dest_file)
+                logger.info("Copying {0} to {1}...".format(src_file, dest_file))
             shutil.copyfile(src_file, dest_file)
 
 def patch_length(target_dir, verbose=False):
@@ -101,12 +103,14 @@ def patch_length(target_dir, verbose=False):
         ogg_files = (f for f in song_files if f.endswith(".ogg"))
         for ogg_file in ogg_files:
             if verbose:
-                print "Patching file: {0}".format(ogg_file)
+                logger.info("Patching file: {0}".format(ogg_file))
             oggpatch.patch_file(ogg_file, verbose=verbose)
-            if verbose:
-                print  # Just create a newline
 
-def run(target_dir, input_paths, length_patch=True, verbose=False):
+def run(target_dir, input_paths, length_patch=True, verbose=False, ext_logger=None):
+    global logger
+    if logger is not None:
+        logger = ext_logger
+        oggpatch.set_logger(logger)
     create_target_dir_structure(target_dir, verbose=verbose)
 
     for input_path in input_paths:

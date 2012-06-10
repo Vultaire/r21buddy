@@ -1,9 +1,13 @@
 from __future__ import absolute_import
 
-import os, sys
+import os, sys, threading, time
 from cStringIO import StringIO
 import Tkinter, tkFileDialog, tkMessageBox
 from r21buddy import oggpatch, r21buddy
+from r21buddy.logger import ThreadQueueLogger
+
+# Interval to poll stdout/stderr capture of r21buddy console code.
+POLL_INTERVAL = 0.1
 
 
 class CompositeControl(object):
@@ -34,7 +38,11 @@ class Directory(CompositeControl):
         # Meh, no "Create Folder" button for this dialog??  And
         # creating directories via adding slashes is counterintuitive
         # to say the least.
-        path = tkFileDialog.askdirectory(mustexist=True)
+        dialog_args = {"mustexist": True}
+        initialdir = self.str_var.get()
+        if len(initialdir) > 0:
+            dialog_args["initialdir"] = initialdir
+        path = tkFileDialog.askdirectory(**dialog_args)
         if len(path) > 0:
             self.str_var.set(path)
 
@@ -70,6 +78,7 @@ class MainWindow(object):
             .pack(side=Tkinter.LEFT)
         Tkinter.Button(f, text="Add...", command=self.on_inputdir_add, width=10) \
             .pack(side=Tkinter.LEFT)
+        self.last_dir = None  # For tracking the last input directory added
 
         inputdir_frame = Tkinter.LabelFrame(control_frame, text="Selected input directories")
         inputdir_frame.pack(anchor=Tkinter.W, fill=Tkinter.X, expand=True)
@@ -125,9 +134,13 @@ class MainWindow(object):
         self.root.mainloop()
 
     def on_inputdir_add(self):
-        path = tkFileDialog.askdirectory(mustexist=True)
+        dialog_kwargs = {"mustexist": True}
+        if self.last_dir is not None:
+            dialog_kwargs["initialdir"] = self.last_dir
+        path = tkFileDialog.askdirectory(**dialog_kwargs)
         if len(path) == 0:
             return
+        self.last_dir = path
         if path in self.input_dirs.get(0, Tkinter.END):
             tkMessageBox.showinfo(
                 title="Directory already queued",
@@ -177,29 +190,44 @@ class MainWindow(object):
             return
         input_paths = self.input_dirs.get(0, Tkinter.END)
         no_length_patch = bool(self.skip_ogg_patch.get())
-        self.hijack_output()
-        r21buddy.run(target_dir, input_paths,
-                     length_patch=(not no_length_patch), verbose=True)
-        output = self.restore_output()
-        self.log_window.configure(state=Tkinter.NORMAL)
-        self.log_window.insert(Tkinter.END, output)
-        self.log_window.see(Tkinter.END)
-        self.log_window.configure(state=Tkinter.DISABLED)
+
+        # Disable GUI
+
+        # To avoid locking the GUI, run execution in another thread.
+        threading.Thread(
+            target=self._on_run,
+            args=(target_dir, input_paths, no_length_patch)
+            ).start()
+
+    def _on_run(self, target_dir, input_paths, no_length_patch):
+
+        def append_log(msg):
+            self.log_window.configure(state=Tkinter.NORMAL)
+            self.log_window.insert(Tkinter.END, msg)
+            self.log_window.see(Tkinter.END)
+            self.log_window.configure(state=Tkinter.DISABLED)
+
+        logger = ThreadQueueLogger()
+        t = threading.Thread(
+            target=r21buddy.run,
+            args=(target_dir, input_paths),
+            kwargs={"length_patch": (not no_length_patch), "verbose": True,
+                    "ext_logger": logger})
+        t.start()
+        while t.is_alive():
+            msg = logger.read()
+            if len(msg) > 0:
+                append_log(msg)
+            if not t.is_alive():
+                break
+            time.sleep(POLL_INTERVAL)
+        msg = logger.read()
+        if len(msg) > 0:
+            append_log(logger.read())
+        append_log("Operation complete.\n\n")
 
     def log(self, msg, *tags):
         self.log_window.insert(Tkinter.INSERT, msg, *tags)
-
-    def hijack_output(self):
-        self.old_stdout = sys.stdout
-        self.old_stderr = sys.stderr
-        sys.stdout = sys.stderr = StringIO()
-
-    def restore_output(self):
-        sio = sys.stdout
-        sys.stdout = self.old_stdout
-        sys.stderr = self.old_stderr
-        output = sio.getvalue()
-        return output
 
 def main():
     root = MainWindow()
