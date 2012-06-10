@@ -225,7 +225,7 @@ class MainWindow(object):
             time.sleep(POLL_INTERVAL)
         msg = logger.read()
         if len(msg) > 0:
-            append_log(logger.read())
+            append_log(msg)
         append_log("Operation complete.\n\n")
 
     def log(self, msg, *tags):
