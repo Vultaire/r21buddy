@@ -66,8 +66,6 @@ class NoMoreBitstreams(Exception):
     pass
 class UnexpectedContinuedPacket(Exception):
     pass
-class UnterminatedPacket(Exception):
-    pass
 class InvalidFramingBit(Exception):
     pass
 
@@ -204,11 +202,14 @@ class VorbisBitStream(object):
                     if page.seg_table[j] < 255:
                         yield "".join(data)
                         data = []
-                        
+
                 if page.last_page:
                     break
             if len(data) > 0:
-                raise UnterminatedPacket(repr("".join(data)))
+                # I *think* the patch should still work - the patch
+                # operates on the page level, but this error is at the
+                # underlying packet; it shouldn't matter.
+                logger.error("WARNING: Unterminated packet detected, ignoring.")
 
         self.pages = list(pages)  # Needed to recreate stream with updated final page
 

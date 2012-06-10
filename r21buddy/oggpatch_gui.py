@@ -193,7 +193,10 @@ class MainWindow(object):
             self.restore_output()
         elif mode == "check":
             self.hijack_output()
-            oggpatch.check_file(input_file, length, verbose=True)
+            try:
+                oggpatch.check_file(input_file, length, verbose=True)
+            except:
+                print traceback.format_exc()
             self.restore_output()
         else:
             raise ValueError("Bad mode", mode)

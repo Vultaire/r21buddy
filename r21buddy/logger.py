@@ -1,4 +1,4 @@
-import Queue
+import sys, Queue
 
 
 class StdoutStderrLogger(object):
