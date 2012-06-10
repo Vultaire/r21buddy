@@ -90,7 +90,7 @@ def copy_songs(input_path, target_dir, verbose=False):
             dest_file = os.path.join(
                 target_song_dir, os.path.basename(src_file))
             if verbose:
-                logger.info("Copying {0} to {1}...".format(src_file, dest_file))
+                logger.info("Copying: {0}\n     to: {1}".format(src_file, dest_file))
             shutil.copyfile(src_file, dest_file)
 
 def patch_length(target_dir, verbose=False):
