@@ -3,6 +3,7 @@ import py2exe
 
 version = "0.1"
 
+
 setup(
     name="r21buddy",
     version=version,
@@ -14,11 +15,17 @@ setup(
     #platforms=["nt", "posix"],  # Not sure of format...
     license="BSD",
     packages=["r21buddy"],
+
     # py2exe-specific
     console=[
         "r21buddy/r21buddy.py",
         "r21buddy/oggpatch.py",
         ],
+    # Cannot figure out why, but the GUI executables do not work :(
+    #windows=[
+    #    "r21buddy/r21buddy_gui.py",
+    #    "r21buddy/oggpatch_gui.py",
+    #    ],
     zipfile=None,
     options={
         "py2exe": {
