@@ -34,7 +34,7 @@ class ThreadQueueLogger(object):
                 output.append(self.q.get(False) + "\n")
             except Queue.Empty:
                 break
-        return "".join(output)
+        return u"".join(output)
 
 
 logger = StdoutStderrLogger()

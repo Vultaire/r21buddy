@@ -126,7 +126,12 @@ def run(target_dir, input_paths, length_patch=True, verbose=False, ext_logger=No
         if length_patch:
             patch_length(target_dir, verbose=verbose)
     except:
-        logger.error(traceback.format_exc())
+        msg = traceback.format_exc()
+        try:
+            enc_msg = msg.decode()
+        except UnicodeDecodeError:
+            enc_msg = repr(msg).decode()
+        logger.error(enc_msg)
 
 def main():
     options = parse_args()

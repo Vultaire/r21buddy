@@ -10,6 +10,14 @@ from r21buddy.logger import ThreadQueueLogger
 POLL_INTERVAL = 100  # milliseconds
 
 
+def askdirectory(*args, **kwargs):
+    """Workaround for Tkinter-related encoding oddities."""
+    result = tkFileDialog.askdirectory(*args, **kwargs)
+    if isinstance(result, unicode):
+        result = eval(repr(result)[1:])
+    return result
+
+
 class CompositeControl(object):
 
     def configure(self, **kwargs):
@@ -42,7 +50,7 @@ class Directory(CompositeControl):
         initialdir = self.str_var.get()
         if len(initialdir) > 0:
             dialog_args["initialdir"] = initialdir
-        path = tkFileDialog.askdirectory(**dialog_args)
+        path = askdirectory(**dialog_args)
         path = path.replace("/", os.sep)
         if len(path) > 0:
             self.str_var.set(path)
@@ -175,7 +183,7 @@ class MainWindow(object):
         dialog_kwargs = {"mustexist": True}
         if self.last_dir is not None:
             dialog_kwargs["initialdir"] = self.last_dir
-        path = tkFileDialog.askdirectory(**dialog_kwargs)
+        path = askdirectory(**dialog_kwargs)
         path = path.replace("/", os.sep)
         if len(path) == 0:
             return
@@ -222,12 +230,14 @@ class MainWindow(object):
         self.input_dirs.delete(i)
 
     def on_run(self):
-        target_dir = self.target_dir.get()
+        target_dir = self.target_dir.get().decode(sys.getfilesystemencoding())
         if len(target_dir) == 0:
             tkMessageBox.showinfo(title="No target directory",
                                   message="No target directory selected.")
             return
         input_paths = self.input_dirs.get(0, Tkinter.END)
+        input_paths = [ip.decode(sys.getfilesystemencoding())
+                       for ip in input_paths]
         no_length_patch = bool(self.skip_ogg_patch.get())
 
         # Disable GUI
