@@ -29,20 +29,25 @@ def parse_args():
     return ap.parse_args()
 
 def create_target_dir_structure(target_dir, verbose=False):
-    song_dir = os.path.join(target_dir, "In The Groove 2", "Songs")
+    song_dir = os.path.join(target_dir, u"In The Groove 2", u"Songs")
     if not os.path.exists(song_dir):
-        os.makedirs(os.path.join(target_dir, "In The Groove 2", "Songs"))
+        os.makedirs(os.path.join(target_dir, u"In The Groove 2", u"Songs"))
         if verbose:
-            logger.info("Created directory: {0}".format(song_dir))
+            logger.info(u"Created directory: {0}".format(song_dir))
     elif not os.path.isdir(song_dir):
         raise Exception("Target path is not a directory", song_dir)
     else:
         if verbose:
-            logger.info("Directory already exists: {0}".format(song_dir))
+            logger.info(u"Directory already exists: {0}".format(song_dir))
 
 def copy_songs(input_path, target_dir, verbose=False):
+    logger.info(u"INPUT DIR: {0}".format(repr(input_path)))
     all_files = [os.path.join(input_path, f) for f in os.listdir(input_path)]
     dirs = [f for f in all_files if os.path.isdir(f)]
+
+    oddballs = [f for f in all_files if (not os.path.isdir(f)) and (not os.path.isfile(f))]
+    if len(oddballs) > 0:
+        logger.info(u"ODDBALLS: {0}".format(repr(oddballs)))
 
     # If directories present: recurse into them.
     if len(dirs) > 0:
@@ -66,22 +71,22 @@ def copy_songs(input_path, target_dir, verbose=False):
     mp3_exists = any(f.endswith(".mp3") for f in all_files)
 
     if not sm_exists:
-        logger.error("Directory {0}: Could not find .sm; only .dwi was found.  Skipping.".format(input_path))
+        logger.error(u"Directory {0}: Could not find .sm; only .dwi was found.  Skipping.".format(input_path))
         return
     if not ogg_exists:
         if any(f.endswith(".mp3") for f in all_files):
-            logger.error("Directory {0}: Could not find .ogg; only .mp3 was found.  Skipping.".format(input_path))
+            logger.error(u"Directory {0}: Could not find .ogg; only .mp3 was found.  Skipping.".format(input_path))
         else:
-            logger.error("Directory {0}: Could not find .ogg.  Skipping.".format(input_path))
+            logger.error(u"Directory {0}: Could not find .ogg.  Skipping.".format(input_path))
         return
 
     # We are compatible.  Check for destination directory; complain
     # LOUDLY if not able to create it.
     song_dir_name = os.path.split(input_path)[-1]
     target_song_dir = os.path.join(
-        target_dir, "In The Groove 2", "Songs", song_dir_name)
+        target_dir, u"In The Groove 2", u"Songs", song_dir_name)
     if os.path.exists(target_song_dir):
-        logger.error("ERROR: {0} already exists; not copying files from {1}.".format(target_song_dir, input_path))
+        logger.error(u"ERROR: {0} already exists; not copying files from {1}.".format(target_song_dir, input_path))
         return
 
     os.makedirs(target_song_dir)
@@ -90,11 +95,11 @@ def copy_songs(input_path, target_dir, verbose=False):
             dest_file = os.path.join(
                 target_song_dir, os.path.basename(src_file))
             if verbose:
-                logger.info("Copying: {0}\n     to: {1}".format(src_file, dest_file))
+                logger.info(u"Copying: {0}\n     to: {1}".format(src_file, dest_file))
             shutil.copyfile(src_file, dest_file)
 
 def patch_length(target_dir, verbose=False):
-    song_dir = os.path.join(target_dir, "In The Groove 2", "Songs")
+    song_dir = os.path.join(target_dir, u"In The Groove 2", u"Songs")
     all_files = [os.path.join(song_dir, f) for f in os.listdir(song_dir)]
     dirs = [d for d in all_files if os.path.isdir(d)]
     for song_dir in dirs:
@@ -102,7 +107,7 @@ def patch_length(target_dir, verbose=False):
         ogg_files = (f for f in song_files if f.endswith(".ogg"))
         for ogg_file in ogg_files:
             if verbose:
-                logger.info("Patching file: {0}".format(ogg_file))
+                logger.info(u"Patching file: {0}".format(ogg_file))
             oggpatch.patch_file(ogg_file, verbose=verbose)
 
 def run(target_dir, input_paths, length_patch=True, verbose=False, ext_logger=None):

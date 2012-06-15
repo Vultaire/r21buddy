@@ -209,7 +209,7 @@ class VorbisBitStream(object):
                 # I *think* the patch should still work - the patch
                 # operates on the page level, but this error is at the
                 # underlying packet; it shouldn't matter.
-                logger.error("WARNING: Unterminated packet detected, ignoring.")
+                logger.error(u"WARNING: Unterminated packet detected, ignoring.")
 
         self.pages = list(pages)  # Needed to recreate stream with updated final page
 
@@ -249,8 +249,8 @@ class VorbisBitStream(object):
 
             last_page = self.pages[-1]
             if verbose:
-                logger.info("Current granule position: {0}".format(last_page.granule_pos))
-                logger.info("New granule position:     {0}".format(new_granule_pos))
+                logger.info(u"Current granule position: {0}".format(last_page.granule_pos))
+                logger.info(u"New granule position:     {0}".format(new_granule_pos))
 
             # Replace last page with patched version
             new_page_data = last_page.get_data_with_new_length(new_granule_pos)
@@ -460,15 +460,15 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
                output_file=None, verbose=True):
     patched = False
     if target_length < 0:
-        logger.error("Bad length ({0}), not patching file".format(target_length))
+        logger.error(u"Bad length ({0}), not patching file".format(target_length))
         return
     with open(input_file, "rb") as infile:
         bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
             length = bitstream.get_length()
         if verbose:
-            logger.info("Current file length: {0}".format(pprint_time(length)))
-            logger.info("Target file length:  {0}".format(pprint_time(target_length)))
+            logger.info(u"Current file length: {0}".format(pprint_time(length)))
+            logger.info(u"Target file length:  {0}".format(pprint_time(target_length)))
         if length > target_length:
             patched = True
             bitstream.patch_length(target_length, verbose=verbose)
@@ -476,33 +476,33 @@ def patch_file(input_file, target_length=TARGET_LENGTH,
         if output_file is None:
             output_file = input_file
         if verbose:
-            logger.info("Writing patched file to {0}".format(output_file))
+            logger.info(u"Writing patched file to {0}".format(output_file))
         with open(output_file, "wb") as outfile:
             for bitstream in bitstreams:
                 bitstream.write_to_file(outfile)
     elif verbose:
-        logger.info("Not patching file; file already appears to be {0} or shorter.".format(
+        logger.info(u"Not patching file; file already appears to be {0} or shorter.".format(
             pprint_time(target_length)))
 
 def check_file(input_file, target_length, verbose=True):
     if target_length < 0:
-        logger.error("Bad length ({0}), not patching file".format(target_length))
+        logger.error(u"Bad length ({0}), not patching file".format(target_length))
         return
     with open(input_file, "rb") as infile:
         bitstreams = list(get_bitstreams(infile))
         for bitstream in bitstreams:
             length = bitstream.get_length()
             if verbose:
-                logger.info("Current file length: {0}".format(pprint_time(length)))
-                logger.info("Target file length:  {0}".format(pprint_time(target_length)))
+                logger.info(u"Current file length: {0}".format(pprint_time(length)))
+                logger.info(u"Target file length:  {0}".format(pprint_time(target_length)))
 
             if length > target_length:
-                logger.error("File exceeds {0}.  Length: {1}".format(
+                logger.error(u"File exceeds {0}.  Length: {1}".format(
                     pprint_time(target_length), pprint_time(length)))
                 return False
             else:
                 if verbose:
-                    logger.info("File passes length check.")
+                    logger.info(u"File passes length check.")
             continue
 
     return True
