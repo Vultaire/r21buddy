@@ -25,7 +25,6 @@ setup(
         "r21buddy/r21buddy_gui.py",
         "r21buddy/oggpatch_gui.py",
         ],
-    zipfile=None,
     options={
         "py2exe": {
             # Currently, the GUIs will not build if the below options
