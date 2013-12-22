@@ -13,9 +13,7 @@ Usage
 Linux
 -----
 
-Just run the scripts as-is.  **The setup.py is intended for driving
-the Windows build; it does not presently install the app into your
-site-packages.**
+Just run the scripts as-is.
 
 oggpatch.py is a single-file patcher, likely very similar to existing
 patchers out there.  It should be capable of length-patching any ogg
