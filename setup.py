@@ -1,7 +1,7 @@
 from distutils.core import setup
 import py2exe
 
-version = "1.1"
+version = "1.1a"
 
 
 setup(
@@ -31,6 +31,14 @@ setup(
             # Currently, the GUIs will not build if the below options
             # are enabled.
             #"bundle_files": 1,
+            "excludes": ["_socket", "_ssl", "win32api", "win32evtlog"],
+            "dll_excludes": [
+                "API-MS-Win-Core-LocalRegistry-L1-1-0.dll",
+                "API-MS-Win-Core-ProcessThreads-L1-1-0.dll",
+                "API-MS-Win-Security-Base-L1-1-0.dll",
+                "POWRPROF.dll",
+                "pywintypes27.dll",
+                ]
             },
         },
     )
