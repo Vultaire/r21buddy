@@ -13,7 +13,7 @@ setup(
     description="Utilities for preparing StepMania songs for use with ITG R21.",
     download_url="https://github.com/Vultaire/r21buddy/zipball/master",
     #platforms=["nt", "posix"],  # Not sure of format...
-    license="BSD",
+    license="MIT",
     packages=["r21buddy"],
 
     # py2exe-specific
